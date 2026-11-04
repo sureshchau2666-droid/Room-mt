@@ -18,12 +18,12 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      # 2. Setup Java 17
-      - name: Setup Java 17
+      # 2. Setup Java 21
+      - name: Setup Java 21
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: '17'
+          java-version: '21'
 
       # 3. Setup Node.js
       - name: Setup Node.js
@@ -102,8 +102,8 @@ jobs:
           cd "$PROJECT_DIR"
           npm run build
 
-      # 11. Install Capacitor Android Platform
-      - name: Install Capacitor Android Platform
+      # 11. Install Capacitor Android
+      - name: Install Capacitor Android
         run: |
           cd "$PROJECT_DIR"
 

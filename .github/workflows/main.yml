@@ -11,36 +11,64 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
+      - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Setup Java
+      - name: Setup Java 17
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
 
-      - name: Setup Node
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '20'
 
-      - name: Setup Android
+      - name: Setup Android SDK
         uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools platforms;android-35 build-tools;35.0.0
 
-      - name: Extract Project
+      - name: Extract Project ZIP
         run: |
           unzip -q Room_Dairy_Manager_Android_Source.zip -d source
-          find source -name package.json
 
-      - name: Build APK
+      - name: Find Project Folder
         run: |
-          cd source/dairypro_android_project
+          PROJECT_DIR=$(dirname "$(find source -name package.json -not -path '*/node_modules/*' -print -quit)")
+
+          if [ -z "$PROJECT_DIR" ] || [ ! -f "$PROJECT_DIR/package.json" ]; then
+            echo "ERROR: package.json not found"
+            exit 1
+          fi
+
+          echo "PROJECT_DIR=$PROJECT_DIR" >> $GITHUB_ENV
+          echo "Project found at: $PROJECT_DIR"
+
+      - name: Install Dependencies
+        run: |
+          cd "$PROJECT_DIR"
           npm install
+
+      - name: Build Web App
+        run: |
+          cd "$PROJECT_DIR"
           npm run build
-          npx cap add android
+
+      - name: Setup Capacitor Android
+        run: |
+          cd "$PROJECT_DIR"
+
+          if [ ! -d "android" ]; then
+            npx cap add android
+          fi
+
           npx cap sync android
-          cd android
+
+      - name: Build Android APK
+        run: |
+          cd "$PROJECT_DIR/android"
           chmod +x gradlew
           ./gradlew assembleDebug
 
@@ -48,4 +76,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: Dairy-Manager-APK
-          path: source/dairypro_android_project/android/app/build/outputs/apk/debug/app-debug.apk
+          path: ${{ env.PROJECT_DIR }}/android/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error

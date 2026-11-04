@@ -1,3 +1,4 @@
+```yaml
 name: Dairy Manager APK Build
 
 on:
@@ -18,7 +19,7 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      # 2. Setup Java
+      # 2. Setup Java 17
       - name: Setup Java 17
         uses: actions/setup-java@v4
         with:
@@ -65,7 +66,6 @@ jobs:
           PROJECT_DIR=$(dirname "$PACKAGE_FILE")
 
           echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
-
           echo "Project found: $PROJECT_DIR"
 
       # 8. Fix Dependency Versions
@@ -103,8 +103,32 @@ jobs:
           cd "$PROJECT_DIR"
           npm run build
 
-      # 11. Setup Capacitor Android
-      - name: Setup Capacitor Android
+      # 11. Install Capacitor Android Platform
+      - name: Install Capacitor Android Platform
+        run: |
+          cd "$PROJECT_DIR"
+
+          if [ ! -f "node_modules/@capacitor/core/package.json" ]; then
+            echo "ERROR: @capacitor/core package not found"
+            exit 1
+          fi
+
+          CORE_VERSION=$(node -e "
+          const fs = require('fs');
+          const pkg = JSON.parse(
+            fs.readFileSync('node_modules/@capacitor/core/package.json', 'utf8')
+          );
+          console.log(pkg.version);
+          ")
+
+          echo "Capacitor Core Version: $CORE_VERSION"
+
+          npm install --save-exact \
+            "@capacitor/android@$CORE_VERSION" \
+            --no-audit --no-fund
+
+      # 12. Add and Sync Android
+      - name: Add and Sync Android
         run: |
           cd "$PROJECT_DIR"
 
@@ -114,7 +138,7 @@ jobs:
 
           npx cap sync android
 
-      # 12. Build Android APK
+      # 13. Build Android APK
       - name: Build Android APK
         run: |
           cd "$PROJECT_DIR/android"
@@ -123,7 +147,7 @@ jobs:
 
           ./gradlew --no-daemon assembleDebug
 
-      # 13. Upload APK
+      # 14. Upload APK
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
@@ -131,3 +155,4 @@ jobs:
           path: ${{ env.PROJECT_DIR }}/android/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 7
+```

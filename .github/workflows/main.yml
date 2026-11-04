@@ -26,11 +26,10 @@ jobs:
           java-version: '17'
 
       # 3. Setup Node.js
-      - name: Setup Node.js 22
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '22'
-          cache: ''
 
       # 4. Setup Android SDK
       - name: Setup Android SDK
@@ -44,7 +43,7 @@ jobs:
             "platforms;android-35" \
             "build-tools;35.0.0"
 
-      # 6. Extract ZIP
+      # 6. Extract Project ZIP
       - name: Extract Project ZIP
         run: |
           unzip -q Room_Dairy_Manager_Android_Source.zip -d source
@@ -67,24 +66,44 @@ jobs:
 
           echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
 
-          echo "Project folder: $PROJECT_DIR"
+          echo "Project found: $PROJECT_DIR"
 
-      # 8. Fix Dependency Version
-      - name: Fix Dependency Version
+      # 8. Fix Dependency Versions
+      - name: Fix Dependency Versions
         run: |
           cd "$PROJECT_DIR"
 
-          npm pkg set 'devDependencies.esbuild=^0.28.2'
+          npm pkg delete dependencies.typescript
+          npm pkg delete optionalDependencies.typescript
+
+          npm pkg set 'devDependencies.typescript=5.9.3'
+          npm pkg set 'devDependencies.esbuild=0.28.2'
 
           npm install --no-audit --no-fund
 
-      # 9. Build Web App
+      # 9. Verify TypeScript
+      - name: Verify TypeScript
+        run: |
+          cd "$PROJECT_DIR"
+
+          node -e "
+          const ts = require('typescript');
+          console.log('TypeScript Version:', ts.version);
+
+          if (!ts.transpileModule || !ts.ModuleKind) {
+            throw new Error('TypeScript Compiler API is unavailable');
+          }
+
+          console.log('TypeScript Compiler API OK');
+          "
+
+      # 10. Build Web App
       - name: Build Web App
         run: |
           cd "$PROJECT_DIR"
           npm run build
 
-      # 10. Setup Capacitor Android
+      # 11. Setup Capacitor Android
       - name: Setup Capacitor Android
         run: |
           cd "$PROJECT_DIR"
@@ -95,7 +114,7 @@ jobs:
 
           npx cap sync android
 
-      # 11. Build APK
+      # 12. Build Android APK
       - name: Build Android APK
         run: |
           cd "$PROJECT_DIR/android"
@@ -104,7 +123,7 @@ jobs:
 
           ./gradlew --no-daemon assembleDebug
 
-      # 12. Upload APK
+      # 13. Upload APK
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:

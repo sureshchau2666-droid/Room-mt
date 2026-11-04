@@ -14,41 +14,42 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Setup Java 17
+      - name: Setup Java
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
 
-      - name: Setup Node.js
+      - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: '20'
 
-      - name: Setup Android SDK
+      - name: Setup Android
         uses: android-actions/setup-android@v3
         with:
-          packages: platform-tools platforms;android-35 build-tools;35.0.0
+          packages: |
+            platform-tools
+            platforms;android-35
+            build-tools;35.0.0
 
-      - name: Extract Project ZIP
+      - name: Extract Project
         run: |
           unzip -q Room_Dairy_Manager_Android_Source.zip -d source
 
       - name: Find Project Folder
         run: |
           PROJECT_DIR=$(dirname "$(find source -name package.json -not -path '*/node_modules/*' -print -quit)")
-
-          if [ -z "$PROJECT_DIR" ] || [ ! -f "$PROJECT_DIR/package.json" ]; then
-            echo "ERROR: package.json not found"
+          if [ ! -f "$PROJECT_DIR/package.json" ]; then
+            echo "package.json not found"
             exit 1
           fi
-
           echo "PROJECT_DIR=$PROJECT_DIR" >> $GITHUB_ENV
-          echo "Project found at: $PROJECT_DIR"
 
-      - name: Install Dependencies
+      - name: Fix esbuild Version
         run: |
           cd "$PROJECT_DIR"
+          npm pkg set 'devDependencies.esbuild=^0.28.2'
           npm install
 
       - name: Build Web App
@@ -56,17 +57,15 @@ jobs:
           cd "$PROJECT_DIR"
           npm run build
 
-      - name: Setup Capacitor Android
+      - name: Setup Capacitor
         run: |
           cd "$PROJECT_DIR"
-
-          if [ ! -d "android" ]; then
+          if [ ! -d android ]; then
             npx cap add android
           fi
-
           npx cap sync android
 
-      - name: Build Android APK
+      - name: Build APK
         run: |
           cd "$PROJECT_DIR/android"
           chmod +x gradlew

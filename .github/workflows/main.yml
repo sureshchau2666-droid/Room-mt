@@ -1,156 +1,56 @@
-name: Dairy Manager APK Build
+name: iOS IPA Build
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - main
-
-permissions:
-  contents: read
 
 jobs:
-  build:
-    runs-on: ubuntu-latest
+  build-ios:
+    runs-on: macos-latest
 
     steps:
-      # 1. Checkout Repository
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      # 2. Setup Java 21
-      - name: Setup Java 21
-        uses: actions/setup-java@v4
-        with:
-          distribution: temurin
-          java-version: '21'
-
-      # 3. Setup Node.js
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '22'
+          node-version: 22
 
-      # 4. Setup Android SDK
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v4
-
-      # 5. Install Android SDK Packages
-      - name: Install Android SDK Packages
+      - name: Extract Source
         run: |
-          sdkmanager --install \
-            "platform-tools" \
-            "platforms;android-35" \
-            "build-tools;35.0.0"
+          unzip Room_Dairy_Manager_Android_Source.zip -d source
 
-      # 6. Extract Project ZIP
-      - name: Extract Project ZIP
+      - name: Install Dependencies
         run: |
-          unzip -q Room_Dairy_Manager_Android_Source.zip -d source
+          cd source/dairypro_android_project
+          npm install
 
-      # 7. Find Project Folder
-      - name: Find Project Folder
-        shell: bash
+      - name: Add iOS Platform
         run: |
-          PACKAGE_FILE=$(find source \
-            -name package.json \
-            -not -path '*/node_modules/*' \
-            -print -quit)
+          cd source/dairypro_android_project
+          npm install @capacitor/ios
+          npx cap add ios || true
+          npx cap sync ios
 
-          if [ -z "$PACKAGE_FILE" ]; then
-            echo "ERROR: package.json not found"
-            exit 1
-          fi
-
-          PROJECT_DIR=$(dirname "$PACKAGE_FILE")
-
-          echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
-          echo "Project found: $PROJECT_DIR"
-
-      # 8. Fix Dependency Versions
-      - name: Fix Dependency Versions
+      - name: Build iOS App
         run: |
-          cd "$PROJECT_DIR"
+          cd source/dairypro_android_project
+          xcodebuild \
+            -project ios/App/App.xcodeproj \
+            -scheme App \
+            -configuration Release \
+            -sdk iphoneos \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO
 
-          npm pkg delete dependencies.typescript
-          npm pkg delete optionalDependencies.typescript
-
-          npm pkg set 'devDependencies.typescript=5.9.3'
-          npm pkg set 'devDependencies.esbuild=0.28.2'
-
-          npm install --no-audit --no-fund
-
-      # 9. Verify TypeScript
-      - name: Verify TypeScript
+      - name: Package IPA
         run: |
-          cd "$PROJECT_DIR"
+          mkdir -p Payload
+          cp -R source/dairypro_android_project/build/Build/Products/Release-iphoneos/App.app Payload/
+          zip -r Room-Dairy-Manager.ipa Payload
 
-          node -e "
-          const ts = require('typescript');
-          console.log('TypeScript Version:', ts.version);
-
-          if (!ts.transpileModule || !ts.ModuleKind) {
-            throw new Error('TypeScript Compiler API is unavailable');
-          }
-
-          console.log('TypeScript Compiler API OK');
-          "
-
-      # 10. Build Web App
-      - name: Build Web App
-        run: |
-          cd "$PROJECT_DIR"
-          npm run build
-
-      # 11. Install Capacitor Android
-      - name: Install Capacitor Android
-        run: |
-          cd "$PROJECT_DIR"
-
-          if [ ! -f "node_modules/@capacitor/core/package.json" ]; then
-            echo "ERROR: @capacitor/core package not found"
-            exit 1
-          fi
-
-          CORE_VERSION=$(node -e "
-          const fs = require('fs');
-          const pkg = JSON.parse(
-            fs.readFileSync('node_modules/@capacitor/core/package.json', 'utf8')
-          );
-          console.log(pkg.version);
-          ")
-
-          echo "Capacitor Core Version: $CORE_VERSION"
-
-          npm install --save-exact \
-            "@capacitor/android@$CORE_VERSION" \
-            --no-audit --no-fund
-
-      # 12. Add and Sync Android
-      - name: Add and Sync Android
-        run: |
-          cd "$PROJECT_DIR"
-
-          if [ ! -d "android" ]; then
-            npx cap add android
-          fi
-
-          npx cap sync android
-
-      # 13. Build Android APK
-      - name: Build Android APK
-        run: |
-          cd "$PROJECT_DIR/android"
-
-          chmod +x gradlew
-
-          ./gradlew --no-daemon assembleDebug
-
-      # 14. Upload APK
-      - name: Upload APK
+      - name: Upload IPA
         uses: actions/upload-artifact@v4
         with:
-          name: Dairy-Manager-APK
-          path: ${{ env.PROJECT_DIR }}/android/app/build/outputs/apk/debug/app-debug.apk
-          if-no-files-found: error
-          retention-days: 7
+          name: Room-Dairy-Manager-IPA
+          path: Room-Dairy-Manager.ipa

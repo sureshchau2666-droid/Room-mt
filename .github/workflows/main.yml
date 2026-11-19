@@ -20,34 +20,41 @@ jobs:
         run: |
           unzip Room_Dairy_Manager_Android_Source.zip -d source
 
-      - name: Fix Dependencies and Install
+      - name: Fix Dependencies
         run: |
           cd source/dairypro_android_project
-          npm pkg set 'devDependencies.esbuild=^0.28.2'
+
+          npm pkg set 'devDependencies.typescript=5.9.3'
+          npm pkg set 'devDependencies.esbuild=0.28.2'
+          npm pkg set 'devDependencies.@capacitor/cli=7.4.3'
+          npm pkg set 'dependencies.@capacitor/core=7.4.3'
+
           npm install --legacy-peer-deps
 
       - name: Install Capacitor iOS
         run: |
           cd source/dairypro_android_project
-          CAP_VERSION=$(node -p "require('./node_modules/@capacitor/core/package.json').version")
-          npm install @capacitor/ios@$CAP_VERSION --legacy-peer-deps
+          npm install @capacitor/ios@7.4.3 --legacy-peer-deps
 
       - name: Build Web App
         run: |
           cd source/dairypro_android_project
           npm run build
 
-      - name: Add and Sync iOS
+      - name: Add iOS Platform
         run: |
           cd source/dairypro_android_project
-          if [ ! -d ios ]; then
-            npx cap add ios
-          fi
+          npx cap add ios
+
+      - name: Sync iOS
+        run: |
+          cd source/dairypro_android_project
           npx cap sync ios
 
       - name: Build iOS App
         run: |
           cd source/dairypro_android_project
+
           xcodebuild \
             -project ios/App/App.xcodeproj \
             -scheme App \
@@ -59,10 +66,14 @@ jobs:
       - name: Create IPA
         run: |
           mkdir -p Payload
-          cp -R source/dairypro_android_project/build/Build/Products/Release-iphoneos/App.app Payload/
+
+          cp -R \
+            source/dairypro_android_project/build/Build/Products/Release-iphoneos/App.app \
+            Payload/
+
           zip -r Room-Dairy-Manager.ipa Payload
 
-      - name: Upload IPA Artifact
+      - name: Upload IPA
         uses: actions/upload-artifact@v4
         with:
           name: Room-Dairy-Manager-IPA

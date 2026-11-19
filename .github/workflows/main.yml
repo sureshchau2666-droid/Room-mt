@@ -51,16 +51,21 @@ jobs:
           cd source/dairypro_android_project
           npx cap sync ios
 
+      - name: Install CocoaPods
+        run: |
+          cd source/dairypro_android_project/ios/App
+          pod install
+
       - name: Build iOS App
         run: |
-          cd source/dairypro_android_project
+          cd source/dairypro_android_project/ios/App
 
           xcodebuild \
-            -project ios/App/App.xcodeproj \
+            -workspace App.xcworkspace \
             -scheme App \
             -configuration Release \
             -sdk iphoneos \
-            -derivedDataPath build \
+            -derivedDataPath ../../build \
             CODE_SIGNING_ALLOWED=NO
 
       - name: Create IPA
